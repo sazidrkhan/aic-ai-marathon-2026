@@ -1,0 +1,150 @@
+{
+  "run_id": "recon_demo_001",
+  "company_name": "Demo SME Trading Sdn Bhd",
+  "base_currency": "MYR",
+  "matched_transactions": [
+    {
+      "proof_id": "proof_001",
+      "bank_row_id": "bank_001",
+      "sender_name": "ABC Trading Ltd",
+      "amount": 1000.0,
+      "currency": "USD",
+      "payment_date": "2026-05-20",
+      "bank_settlement_date": "2026-05-21",
+      "reference": "INV-8821",
+      "expected_amount_local": 4700.0,
+      "actual_amount_local": 4685.0,
+      "local_currency": "MYR",
+      "fx_rate": 4.7,
+      "fee_difference": 15.0,
+      "confidence": 0.94,
+      "reason_codes": [
+        "reference_exact_match",
+        "date_within_tolerance",
+        "amount_within_fee_tolerance"
+      ],
+      "reasoning_facts": [
+        "Payment reference INV-8821 matched bank row bank_001.",
+        "The bank settlement date is one day after the payment date.",
+        "The MYR 15.00 difference is consistent with an expected bank fee."
+      ]
+    },
+    {
+      "proof_id": "proof_002",
+      "bank_row_id": "bank_004",
+      "sender_name": "Northwind Imports",
+      "amount": 250.0,
+      "currency": "SGD",
+      "payment_date": "2026-05-22",
+      "bank_settlement_date": "2026-05-22",
+      "reference": "NW-2044",
+      "expected_amount_local": 875.0,
+      "actual_amount_local": 875.0,
+      "local_currency": "MYR",
+      "fx_rate": 3.5,
+      "fee_difference": 0.0,
+      "confidence": 0.98,
+      "reason_codes": [
+        "reference_exact_match",
+        "date_exact_match",
+        "amount_exact_match"
+      ],
+      "reasoning_facts": [
+        "Payment reference NW-2044 matched bank row bank_004.",
+        "The expected MYR amount equals the bank credit amount.",
+        "The transaction date matched exactly."
+      ]
+    }
+  ],
+  "possible_matches": [
+    {
+      "proof_id": "proof_003",
+      "candidate_bank_row_id": "bank_006",
+      "sender_name": "Kuala Export Partner",
+      "amount": 700.0,
+      "currency": "USD",
+      "reference": "KEP-7100",
+      "confidence": 0.68,
+      "reason_codes": [
+        "reference_missing",
+        "amount_within_fee_tolerance",
+        "date_within_tolerance"
+      ],
+      "reasoning_facts": [
+        "The candidate bank row amount is close after FX conversion and expected fee tolerance.",
+        "The payment proof reference is missing from the bank statement narration.",
+        "Human review is required before marking the item as reconciled."
+      ]
+    }
+  ],
+  "unmatched_payment_proofs": [
+    {
+      "proof_id": "proof_004",
+      "sender_name": "Pacific Buyer Co",
+      "amount": 500.0,
+      "currency": "EUR",
+      "reference": "PB-9910",
+      "confidence": 0.31,
+      "reason_codes": [
+        "missing_bank_transaction",
+        "low_ocr_confidence"
+      ],
+      "reasoning_facts": [
+        "No bank row matched the expected local amount or reference.",
+        "OCR confidence was low, so the extracted amount should be checked manually."
+      ]
+    }
+  ],
+  "unmatched_bank_rows": [
+    {
+      "bank_row_id": "bank_009",
+      "amount_local": 1200.0,
+      "currency": "MYR",
+      "settlement_date": "2026-05-23",
+      "description": "Unknown incoming transfer",
+      "reason_codes": [
+        "missing_payment_proof"
+      ],
+      "reasoning_facts": [
+        "The bank statement contains an incoming transfer without a corresponding payment proof."
+      ]
+    }
+  ],
+  "fx_rates_used": [
+    {
+      "pair": "USD/MYR",
+      "rate": 4.7,
+      "date": "2026-05-20"
+    },
+    {
+      "pair": "SGD/MYR",
+      "rate": 3.5,
+      "date": "2026-05-22"
+    },
+    {
+      "pair": "EUR/MYR",
+      "rate": 5.1,
+      "date": "2026-05-23"
+    }
+  ],
+  "agent_trace": [
+    {
+      "step": 1,
+      "tool": "paddle_ocr_extract",
+      "status": "success",
+      "summary": "Extracted text from four controlled payment proofs using PaddleOCR."
+    },
+    {
+      "step": 2,
+      "tool": "parse_payment_proof",
+      "status": "success",
+      "summary": "Extracted sender, amount, currency, dates, and references into structured facts."
+    },
+    {
+      "step": 3,
+      "tool": "match_transactions",
+      "status": "success",
+      "summary": "Applied reference, amount, date, FX, and fee matching rules."
+    }
+  ]
+}
