@@ -1,0 +1,4 @@
+# Optional OCR dependencies.
+# Install only if you want real PaddleOCR extraction instead of demo stub OCR.
+paddleocr>=2.8.0
+pillow>=10.0.0

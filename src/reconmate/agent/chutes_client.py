@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.request
 from dataclasses import dataclass
 
@@ -46,7 +47,25 @@ class ChutesClient:
             },
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
-            payload = json.loads(response.read().decode("utf-8"))
 
-        return payload["choices"][0]["message"]["content"]
+        # Retry with basic exponential backoff for 429 rate limits
+        last_exception: Exception | None = None
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                return payload["choices"][0]["message"]["content"]
+            except urllib.error.HTTPError as exc:
+                if exc.code == 429:
+                    last_exception = exc
+                    wait = 2 ** attempt
+                    time.sleep(wait)
+                    continue
+                raise
+            except Exception as exc:
+                raise
+
+        raise RuntimeError(
+            f"Chutes API returned 429 Too Many Requests after 3 retries. "
+            f"Last error: {last_exception}"
+        ) from last_exception

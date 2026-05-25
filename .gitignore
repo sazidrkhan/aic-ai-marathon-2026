@@ -6,3 +6,6 @@ __pycache__/
 dist/
 build/
 node_modules/
+tmp/
+guidebook_extracted.txt
+scripts/debug_api.py
