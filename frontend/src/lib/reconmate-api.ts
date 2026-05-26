@@ -19,7 +19,17 @@ export async function checkHealth(): Promise<HealthResponse | null> {
 export interface OcrExtractResponse {
   filename?: string;
   status?: string;
+  engine?: string | null;
+  confidence?: number | null;
   ocr_text?: string;
+  lines?: string[];
+  fields?: {
+    sender_name?: string | null;
+    amount?: string | null;
+    currency?: string | null;
+    reference?: string | null;
+    date?: string | null;
+  };
   message?: string;
   [key: string]: unknown;
 }
@@ -38,7 +48,10 @@ export async function extractProof(file: File): Promise<OcrExtractResponse> {
   } catch {
     throw new Error(`Invalid JSON from /api/ocr-extract (${res.status}): ${text.slice(0, 200)}`);
   }
-  if (!res.ok) throw new Error((data as { error?: string }).error || `OCR backend returned ${res.status}`);
+  if (!res.ok) {
+    const detail = (data as { detail?: string; error?: string }).detail;
+    throw new Error(detail || (data as { error?: string }).error || `OCR backend returned ${res.status}`);
+  }
   return data;
 }
 

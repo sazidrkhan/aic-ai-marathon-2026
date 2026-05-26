@@ -6,15 +6,13 @@ ReconMate uses a custom FastAPI orchestrator and direct Chutes.AI inference for 
 
 ## Quick Start
 
-```bash
-# Install required Python dependencies
-pip install -r requirements.txt
-
-# Start the FastAPI server
+```powershell
+# From the repository root
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python --version  # should show Python 3.11.x
+python -m pip install -r requirements.txt
 python main.py
-
-# Test the API
-python scripts/test_api.py
 ```
 
 Stop the server with `Ctrl+C`.
@@ -23,9 +21,13 @@ Stop the server with `Ctrl+C`.
 
 For optional real OCR support, install:
 
-```bash
-pip install -r requirements-ocr.txt
+```powershell
+python -m pip install -r requirements-ocr.txt
 ```
+
+Use Python 3.11 on Windows for this project, especially for OCR. If
+`python --version` shows others, there is a slight chance PaddlePaddle cannot install.
+
 
 ## Current Base
 
@@ -36,7 +38,7 @@ This repository contains:
 - **ReconMate system prompt** for finance-safe document generation
 - **Agent document generation** (Reconciliation Report + Discrepancy Summary)
 - **Template fallback** when Chutes is unavailable or rate-limited
-- **Optional PaddleOCR integration** (`reconmate.agent.ocr_engine`) — install `requirements-ocr.txt` to enable
+- **Optional OCR integration** (`reconmate.agent.ocr_engine`) - install `requirements-ocr.txt` to enable PaddleOCR image/scanned-PDF extraction and text-PDF parsing
 - **Sample reconciliation payload** for controlled demo data
 - **Lovable React frontend** (`frontend/`) with TanStack Start — connect to backend via `VITE_API_BASE_URL`
 - **Minimal fallback frontend** (`frontend/index.html`) served at `/` for quick demo
@@ -81,22 +83,16 @@ PYTHONPATH=src python3 -m reconmate.agent.run_sample data/sample/reconciliation_
 python scripts/test_api.py
 ```
 
+## Sample Data
+
+- `data/sample/reconciliation_payload.json` - compact default demo payload
+- `data/sample/ocr_demo/payment_proof_*.png` - generated proof images for OCR upload testing
+- `data/sample/ocr_demo/bank_statement_may_2026.csv` - matching bank statement CSV for the Bank Statement tab
+
 ## Verify API Key
 
 ```bash
 python scripts/verify_key.py
-```
-
-## Chutes.AI Configuration
-
-```bash
-PYTHONPATH=src python3 scripts/verify_chutes_config.py
-```
-
-## Live Model Discovery
-
-```bash
-PYTHONPATH=src python3 scripts/list_chutes_models.py
 ```
 
 ## Lovable React Frontend
@@ -106,18 +102,21 @@ PYTHONPATH=src python3 scripts/list_chutes_models.py
 **Exact steps to run locally:**
 
 ```powershell
-# Terminal 1 — Backend (must run first)
-cd D:\Torrent_AIC_AIMarathon\aic-ai-marathon-2026
-.\.venv\Scripts\activate
+# Terminal 1 - Backend (must run first)
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python --version  # should show Python 3.11.x
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-ocr.txt
 $env:PYTHONPATH="src"
 python main.py
-# → Backend runs at http://127.0.0.1:8000
+# Backend runs at http://127.0.0.1:8000
 
-# Terminal 2 — Frontend
-cd D:\Torrent_AIC_AIMarathon\aic-ai-marathon-2026\frontend
+# Terminal 2 - Frontend
+cd frontend
 npm install    # first time only
 npm run dev
-# → Frontend runs at http://localhost:5173
+# Frontend runs at http://localhost:5173
 ```
 
 **Open in browser:**
@@ -159,6 +158,6 @@ See:
 
 - `docs/agentic-ai-base.md`
 - `docs/backend-frontend-contract.md`
-- `docs/chutes-runbook.md`
+- `docs/chutes-runbook.md` (legacy provider notes)
 - `docs/pitch_deck.md`
 - `docs/video_script.md`
