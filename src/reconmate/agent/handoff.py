@@ -29,7 +29,7 @@ def choose_demo_model_ids(model_payload: dict[str, Any], *, limit: int = 8) -> l
     return chosen
 
 
-def build_hermes_provider_config(*, models: Iterable[str]) -> str:
+def build_chutes_provider_config(*, models: Iterable[str]) -> str:
     model_lines = "\n".join(f"      {model}: {{}}" for model in models)
     return f"""providers:
   chutes:

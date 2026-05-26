@@ -30,7 +30,7 @@ def generate_agent_documents(payload: dict[str, Any], *, llm_client: LlmClient) 
             }
         )
         return {
-            "report_source": "chutes_hermes",
+            "report_source": "chutes_agent",
             "model": llm_client.model,
             "documents": documents,
             "agent_trace": trace,

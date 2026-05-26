@@ -2,7 +2,7 @@
 
 ReconMate is an AI Marathon 2026 prototype for Problem Statement 3: The Global Treasury Agent.
 
-It uses a Python backend agent base, Chutes.AI LLM document generation, PaddleOCR for payment-proof OCR, and a React frontend planned through Lovable AI.
+ReconMate uses a custom FastAPI orchestrator and direct Chutes.AI inference for finance-safe document generation. It does not use any prebuilt agent framework. It uses PaddleOCR for payment-proof OCR and a React frontend planned through Lovable AI.
 
 ## Quick Start
 
@@ -32,7 +32,7 @@ pip install -r requirements-ocr.txt
 This repository contains:
 
 - **FastAPI backend** (`main.py`) with `/api/reconcile`, `/health`, `/api/models`, `/api/ocr-extract`
-- **Chutes-compatible LLM client** with retry logic for rate limits
+- **Chutes.AI LLM client** with retry logic for rate limits
 - **ReconMate system prompt** for finance-safe document generation
 - **Agent document generation** (Reconciliation Report + Discrepancy Summary)
 - **Template fallback** when Chutes is unavailable or rate-limited
@@ -86,10 +86,10 @@ python scripts/test_api.py
 python scripts/verify_key.py
 ```
 
-## Hermes Config Snippet
+## Chutes.AI Configuration
 
 ```bash
-PYTHONPATH=src python3 scripts/generate_hermes_config.py
+PYTHONPATH=src python3 scripts/verify_chutes_config.py
 ```
 
 ## Live Model Discovery
@@ -122,6 +122,6 @@ See:
 
 - `docs/agentic-ai-base.md`
 - `docs/backend-frontend-contract.md`
-- `docs/hermes-chutes-runbook.md`
+- `docs/chutes-runbook.md`
 - `docs/pitch_deck.md`
 - `docs/video_script.md`

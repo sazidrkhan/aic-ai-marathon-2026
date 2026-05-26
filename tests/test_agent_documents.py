@@ -64,7 +64,7 @@ class AgentDocumentTests(unittest.TestCase):
     def test_generates_both_agent_documents_when_payload_has_matches_and_discrepancies(self):
         result = generate_agent_documents(sample_payload(), llm_client=SuccessfulClient())
 
-        self.assertEqual(result["report_source"], "chutes_hermes")
+        self.assertEqual(result["report_source"], "chutes_agent")
         self.assertEqual(result["model"], "default:latency")
         self.assertIs(result["fallback_used"], False)
         self.assertIs(result["documents"]["reconciliation_report"]["generated"], True)
