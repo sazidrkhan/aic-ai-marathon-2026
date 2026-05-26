@@ -1,4 +1,4 @@
-# Hermes and Chutes Runbook
+# Chutes.AI Runbook
 
 Use this to complete Member A setup on the main demo laptop.
 
@@ -13,32 +13,7 @@ export CHUTES_BASE_URL=https://llm.chutes.ai/v1
 export CHUTES_TIMEOUT_SECONDS=30
 ```
 
-## 2. Generate Hermes Provider Snippet
-
-```bash
-PYTHONPATH=src python3 scripts/generate_hermes_config.py
-```
-
-Add the generated provider block to Hermes config from:
-
-```bash
-hermes config path
-hermes config edit
-```
-
-Hermes env path:
-
-```bash
-hermes config env-path
-```
-
-Add only this to the Hermes env file:
-
-```bash
-CHUTES_API_KEY=cpk_your_key_here
-```
-
-## 3. Verify Live Chutes Models
+## 2. Verify Live Chutes Models
 
 ```bash
 PYTHONPATH=src python3 scripts/list_chutes_models.py
@@ -46,7 +21,7 @@ PYTHONPATH=src python3 scripts/list_chutes_models.py
 
 Prefer `default:latency` for the live demo unless a better live model is found.
 
-## 4. Verify Local Fallback
+## 3. Verify Local Fallback
 
 ```bash
 PYTHONPATH=src python3 -m reconmate.agent.run_sample data/sample/reconciliation_payload.json
@@ -58,7 +33,7 @@ Expected:
 - Both document types are returned.
 - Agent trace includes `chutes_generate_documents` with `fallback` status.
 
-## 5. Verify Live Chutes Generation
+## 4. Verify Live Chutes Generation
 
 ```bash
 PYTHONPATH=src python3 -m reconmate.agent.run_sample data/sample/reconciliation_payload.json --use-chutes
@@ -66,15 +41,15 @@ PYTHONPATH=src python3 -m reconmate.agent.run_sample data/sample/reconciliation_
 
 Expected:
 
-- `report_source` is `chutes_hermes`.
+- `report_source` is `chutes_agent`.
 - `model` is the selected Chutes model.
 - Both document types are returned.
 - Agent trace includes `chutes_generate_documents` with `success` status.
 
-## 6. Demo Talking Point
+## 5. Demo Talking Point
 
 Use this wording:
 
 ```text
-ReconMate uses deterministic finance tools for reconciliation and a Chutes-powered Hermes agent for audit-friendly document generation. The LLM explains structured facts; it does not invent or calculate financial truth.
+ReconMate uses deterministic finance tools for reconciliation and a Chutes-powered ReconMate Agent for audit-friendly document generation. The LLM explains structured facts; it does not invent or calculate financial truth.
 ```

@@ -63,7 +63,7 @@ Team: [Your Team Name]
 
 ## Slide 6: Tech Stack
 - **Backend**: Python, FastAPI
-- **LLM**: Chutes.ai (Hermes-compatible)
+- **LLM**: Chutes.ai
 - **OCR**: PaddleOCR
 - **Frontend**: HTML/JS (Lovable AI for React version)
 - **Deployment**: Uvicorn + local runs

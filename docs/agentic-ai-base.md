@@ -9,7 +9,7 @@ ReconMate is the Global Treasury Agent for AI Marathon 2026 Problem Statement 3.
 - Tool usage: the backend exposes each workflow step as a traceable tool action.
 - Reconciliation Report: generated for successful matches.
 - Discrepancy Summary: generated for unresolved, failed, or possible matches.
-- Agentic AI: Chutes/Hermes generates audit-friendly documents from structured tool facts.
+- Agentic AI: Chutes.AI generates audit-friendly documents from structured tool facts.
 
 ## Architecture
 
@@ -27,7 +27,7 @@ React frontend from Lovable AI
 
 ## Member A Scope
 
-Sazid owns the Chutes/Hermes setup and the ReconMate agent contract:
+Sazid owns the Chutes.AI setup and the ReconMate agent contract:
 
 - `CHUTES_API_KEY` stays in environment variables only.
 - Chutes endpoint is `https://llm.chutes.ai/v1`.
@@ -66,7 +66,7 @@ Output:
 
 ```json
 {
-  "report_source": "chutes_hermes",
+  "report_source": "chutes_agent",
   "model": "default:latency",
   "documents": {
     "reconciliation_report": {"generated": true, "content": "..."},

@@ -5,7 +5,7 @@ from tests import _path  # noqa: F401
 from reconmate.agent.chutes_client import ChutesClient
 from reconmate.agent.handoff import (
     build_backend_reconcile_response,
-    build_hermes_provider_config,
+    build_chutes_provider_config,
     choose_demo_model_ids,
 )
 
@@ -27,8 +27,8 @@ class ChutesHandoffTests(unittest.TestCase):
             os.environ.clear()
             os.environ.update(original)
 
-    def test_hermes_provider_config_uses_key_env_instead_of_secret_value(self):
-        config = build_hermes_provider_config(models=["default", "default:latency", "Qwen/Qwen3-32B-TEE"])
+    def test_chutes_provider_config_uses_key_env_instead_of_secret_value(self):
+        config = build_chutes_provider_config(models=["default", "default:latency", "Qwen/Qwen3-32B-TEE"])
 
         self.assertIn("base_url: https://llm.chutes.ai/v1", config)
         self.assertIn("key_env: CHUTES_API_KEY", config)
@@ -37,7 +37,7 @@ class ChutesHandoffTests(unittest.TestCase):
 
     def test_backend_reconcile_response_wraps_agent_documents_for_frontend(self):
         agent_result = {
-            "report_source": "chutes_hermes",
+            "report_source": "chutes_agent",
             "model": "default:latency",
             "documents": {
                 "reconciliation_report": {"generated": True, "content": "report"},
@@ -51,8 +51,8 @@ class ChutesHandoffTests(unittest.TestCase):
         response = build_backend_reconcile_response("recon_demo_001", agent_result)
 
         self.assertEqual(response["run_id"], "recon_demo_001")
-        self.assertEqual(response["documents"]["reconciliation_report"]["source"], "chutes_hermes")
-        self.assertEqual(response["documents"]["discrepancy_summary"]["source"], "chutes_hermes")
+        self.assertEqual(response["documents"]["reconciliation_report"]["source"], "chutes_agent")
+        self.assertEqual(response["documents"]["discrepancy_summary"]["source"], "chutes_agent")
         self.assertEqual(response["model"], "default:latency")
         self.assertIs(response["fallback_used"], False)
 

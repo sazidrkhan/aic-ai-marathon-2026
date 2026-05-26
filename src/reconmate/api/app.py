@@ -38,6 +38,7 @@ class ReconcileResponse(BaseModel):
     """Outbound reconciliation response returned to the frontend."""
 
     run_id: str
+    report_source: str | None = None
     summary: dict[str, Any]
     transactions: list[dict[str, Any]]
     documents: dict[str, Any]
@@ -62,8 +63,15 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
