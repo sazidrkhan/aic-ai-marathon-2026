@@ -38,7 +38,8 @@ This repository contains:
 - **Template fallback** when Chutes is unavailable or rate-limited
 - **Optional PaddleOCR integration** (`reconmate.agent.ocr_engine`) — install `requirements-ocr.txt` to enable
 - **Sample reconciliation payload** for controlled demo data
-- **Minimal frontend** (`frontend/index.html`) served at `/` for demo
+- **Lovable React frontend** (`frontend/`) with TanStack Start — connect to backend via `VITE_API_BASE_URL`
+- **Minimal fallback frontend** (`frontend/index.html`) served at `/` for quick demo
 - **Pitch deck** (`docs/pitch_deck.md`) and **demo script** (`docs/video_script.md`)
 
 ## Core Principle
@@ -98,9 +99,45 @@ PYTHONPATH=src python3 scripts/verify_chutes_config.py
 PYTHONPATH=src python3 scripts/list_chutes_models.py
 ```
 
-## Frontend Demo
+## Lovable React Frontend
 
-Open `http://127.0.0.1:8000/` in a browser while the server is running.
+**Note:** The hosted Lovable preview URL cannot reach your local FastAPI backend. Always test local backend integration using the local frontend dev server (`npm run dev`).
+
+**Exact steps to run locally:**
+
+```powershell
+# Terminal 1 — Backend (must run first)
+cd D:\Torrent_AIC_AIMarathon\aic-ai-marathon-2026
+.\.venv\Scripts\activate
+$env:PYTHONPATH="src"
+python main.py
+# → Backend runs at http://127.0.0.1:8000
+
+# Terminal 2 — Frontend
+cd D:\Torrent_AIC_AIMarathon\aic-ai-marathon-2026\frontend
+npm install    # first time only
+npm run dev
+# → Frontend runs at http://localhost:5173
+```
+
+**Open in browser:**
+- Dashboard: `http://localhost:5173/dashboard`
+- Health check indicator shows: "Backend connected" (green) or "Backend unreachable" (red)
+- Click "Load Sample Payload" then "Run Reconciliation"
+
+**Environment:**
+The frontend reads `VITE_API_BASE_URL` from `frontend/.env` (defaults to `http://127.0.0.1:8000`).
+
+**Backend CORS:**
+- Allowed origins: `localhost:5173`, `127.0.0.1:5173`, `localhost:3000`, `127.0.0.1:3000`
+- Credentials: disabled (`allow_credentials=False`)
+
+**Debugging "Failed to fetch" / "Could not reach agent":**
+1. Verify backend is running at `http://127.0.0.1:8000` (open directly in browser)
+2. Check the dashboard's "Backend status" badge — if red, backend is unreachable
+3. Check browser console (F12) — look for `[ReconMate]` log lines showing the exact URL, method, and error
+4. Verify you are using the **local frontend dev server** (`localhost:5173`), not the Lovable preview URL
+5. Confirm your frontend port matches the CORS allowed origins list (see above)
 
 ## Submission Package
 

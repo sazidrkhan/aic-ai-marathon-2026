@@ -50,6 +50,7 @@ def build_backend_reconcile_response(run_id: str, agent_result: dict[str, Any]) 
 
     return {
         "run_id": run_id,
+        "report_source": report_source,
         "documents": {
             "reconciliation_report": {
                 "generated": documents["reconciliation_report"]["generated"],
