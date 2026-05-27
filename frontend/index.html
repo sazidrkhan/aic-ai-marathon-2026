@@ -85,28 +85,42 @@
   "run_id": "demo_001",
   "company_name": "Demo SME Trading Sdn Bhd",
   "base_currency": "MYR",
-  "matched_transactions": [
+  "date_tolerance_days": 3,
+  "fee_tolerance": { "percent": 0.02, "fixed": 20 },
+  "fx_rates": [{ "pair": "USD_MYR", "rate": 4.45, "date": "2026-05-27" }],
+  "payment_proofs": [
     {
       "proof_id": "proof_001",
-      "bank_row_id": "bank_001",
       "sender_name": "ABC Trading Ltd",
       "amount": 1000.0,
       "currency": "USD",
-      "expected_amount_local": 4700.0,
-      "actual_amount_local": 4685.0,
-      "fee_difference": 15.0,
-      "confidence": 0.94,
-      "reason_codes": ["reference_exact_match", "amount_within_fee_tolerance"],
-      "reasoning_facts": ["Matched with reference and fee tolerance."]
+      "reference": "INV-2026-001",
+      "payment_date": "2026-05-20"
+    },
+    {
+      "proof_id": "proof_002",
+      "sender_name": "XYZ Global",
+      "amount": 500.0,
+      "currency": "MYR",
+      "reference": "PO-9876",
+      "payment_date": "2026-05-21"
     }
   ],
-  "possible_matches": [],
-  "unmatched_payment_proofs": [],
-  "unmatched_bank_rows": [],
-  "fx_rates_used": [{"pair": "USD/MYR", "rate": 4.7, "date": "2026-05-20"}],
-  "agent_trace": [
-    {"step": 1, "tool": "paddle_ocr_extract", "status": "success", "summary": "Extracted text from controlled payment proofs."},
-    {"step": 2, "tool": "match_transactions", "status": "success", "summary": "Applied reference, amount, date, FX, and fee matching rules."}
+  "bank_rows": [
+    {
+      "bank_row_id": "bank_001",
+      "amount_local": 4450.0,
+      "currency": "MYR",
+      "settlement_date": "2026-05-22",
+      "description": "INV-2026-001 ABC Trading Ltd"
+    },
+    {
+      "bank_row_id": "bank_002",
+      "amount_local": 500.0,
+      "currency": "MYR",
+      "settlement_date": "2026-05-23",
+      "description": "PO-9876 XYZ Global"
+    }
   ]
 }
         </textarea>
@@ -139,8 +153,8 @@
 
 <script>
   const API_URL = window.location.protocol.startsWith("http")
-    ? `${window.location.origin}/api/reconcile`
-    : "http://127.0.0.1:8000/api/reconcile";
+    ? `${window.location.origin}/api/reconcile/agent`
+    : "http://127.0.0.1:8000/api/reconcile/agent";
 
   const form = document.getElementById("reconcileForm");
   const loading = document.getElementById("loading");
@@ -190,14 +204,30 @@
   }
 
   function renderResults(data) {
-    const { summary, documents, agent_trace, fallback_used, llm_error } = data;
+    const { summary, documents, agent_trace, fallback_used, llm_error, computed_by_backend, transactions } = data;
+    const matched = (summary?.matched_count ?? 0);
+    const possible = (summary?.possible_match_count ?? 0);
+    const unmatched = (summary?.unmatched_payment_proof_count ?? 0);
     const badges = [
-      `<span class="status-badge ${fallback_used ? 'badge-warning' : 'badge-success'}">${fallback_used ? 'Template Fallback' : 'Chutes LLM'}</span>`,
-      summary.matched_count > 0 ? `<span class="status-badge badge-success">${summary.matched_count} Matched</span>` : '',
-      summary.unmatched_payment_proof_count > 0 ? `<span class="status-badge badge-warning">${summary.unmatched_payment_proof_count} Unmatched</span>` : ''
+      computed_by_backend ? '<span class="status-badge badge-success">Backend Computed</span>' : '',
+      `<span class="status-badge ${fallback_used ? 'badge-warning' : 'badge-success'}">${fallback_used ? 'Template Fallback' : 'LLM Generated'}</span>`,
+      matched > 0 ? `<span class="status-badge badge-success">${matched} Matched</span>` : '',
+      possible > 0 ? `<span class="status-badge badge-warning">${possible} Possible</span>` : '',
+      unmatched > 0 ? `<span class="status-badge badge-warning">${unmatched} Unmatched</span>` : ''
     ].filter(Boolean).join(' ');
 
     let html = `<div style="margin-bottom:1rem">${badges}</div>`;
+
+    if (transactions && transactions.length > 0) {
+      html += '<div class="result-card"><h3>Transaction Classifications</h3><table style="width:100%;border-collapse:collapse;font-size:.875rem">';
+      html += '<tr style="border-bottom:2px solid var(--border);font-weight:600"><td style="padding:.5rem">Proof</td><td style="padding:.5rem">Bank Row</td><td style="padding:.5rem">Classification</td><td style="padding:.5rem">Confidence</td></tr>';
+      transactions.forEach(t => {
+        const cls = t.classification || 'unknown';
+        const clsColor = cls === 'matched' ? 'var(--success)' : cls === 'possible' ? 'var(--warning)' : 'var(--danger)';
+        html += `<tr style="border-bottom:1px solid var(--border)"><td style="padding:.5rem">${escapeHtml(t.proof_id)}</td><td style="padding:.5rem">${escapeHtml(t.bank_row_id)}</td><td style="padding:.5rem;color:${clsColor};font-weight:600">${cls}</td><td style="padding:.5rem">${t.confidence || ''}</td></tr>`;
+      });
+      html += '</table></div>';
+    }
 
     if (documents?.reconciliation_report?.generated) {
       html += `<div class="result-card"><h3>Reconciliation Report</h3><pre>${escapeHtml(documents.reconciliation_report.content)}</pre></div>`;
@@ -216,7 +246,7 @@
       <div class="trace-step ${step.status === 'success' ? 'ok' : 'warn'}">
         <h4>${escapeHtml(step.tool || '').replace(/_/g, ' ')}</h4>
         <span>${escapeHtml(step.status || '')}</span>
-        <p style="margin-top:.5rem;color:var(--muted);font-size:.75rem">${escapeHtml(step.summary || '')}</p>
+        <p style="margin-top:.5rem;color:var(--muted);font-size:.75rem">${escapeHtml(step.summary || step.key_output_summary || '')}</p>
       </div>
     `).join('');
   }

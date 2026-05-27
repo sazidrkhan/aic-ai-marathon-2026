@@ -71,10 +71,18 @@ export interface MatchedTransaction {
   sender_name?: string;
   amount?: number;
   currency?: string;
-  expected_amount_local?: number;
-  actual_amount_local?: number;
+  expected_amount_local?: number | string;
+  actual_amount_local?: number | string;
   match_confidence?: number;
+  confidence?: string;
+  classification?: string;
+  reference_found?: boolean;
+  date_within_tolerance?: boolean;
+  sender_match?: boolean;
+  amount_within_tolerance?: boolean;
+  fee_difference?: number | string | null;
   reason_codes?: string[];
+  reasoning_facts?: string[];
   [key: string]: unknown;
 }
 
@@ -85,6 +93,7 @@ export interface UnmatchedTransaction {
   currency?: string;
   expected_amount_local?: number;
   reason?: string;
+  reason_codes?: string[];
   [key: string]: unknown;
 }
 
@@ -96,6 +105,9 @@ export interface BackendDocument {
 
 export interface ReconcileResponse {
   run_id?: string;
+  company_name?: string;
+  base_currency?: string;
+  computed_by_backend?: boolean;
   summary?: string | Record<string, unknown>;
   documents?: {
     reconciliation_report?: BackendDocument;
@@ -131,7 +143,7 @@ async function request(url: string, options: RequestInit): Promise<Response> {
 }
 
 export async function runReconciliation(payload: unknown): Promise<ReconcileResponse> {
-  const url = `${API_BASE_URL}/api/reconcile`;
+  const url = `${API_BASE_URL}/api/reconcile/agent`;
   const res = await request(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -145,11 +157,27 @@ export async function runReconciliation(payload: unknown): Promise<ReconcileResp
     throw new Error(`Invalid JSON from backend (${res.status}): ${text.slice(0, 200)}`);
   }
   if (!res.ok) {
-    throw new Error(data.error || data.llm_error || `Backend returned ${res.status}`);
+    const detail = (data as Record<string, unknown>).detail;
+    const detailMsg = typeof detail === "string"
+      ? detail
+      : Array.isArray(detail)
+        ? (detail as Array<{ msg?: string; loc?: unknown[] }>).map((d) => `[${(d.loc || []).join(".")}] ${d.msg || ""}`).join("; ")
+        : null;
+    throw new Error(detailMsg || data.error || data.llm_error || `Backend returned ${res.status}`);
   }
-  // Map backend transactions field to matched_transactions for dashboard
+  // Normalize agent response: split transactions by classification
   if (data.transactions && !data.matched_transactions) {
-    data.matched_transactions = data.transactions;
+    const matched: MatchedTransaction[] = [];
+    const possible: MatchedTransaction[] = [];
+    const unmatched: UnmatchedTransaction[] = [];
+    for (const t of data.transactions) {
+      if (t.classification === "matched") matched.push(t);
+      else if (t.classification === "possible") possible.push(t);
+      else unmatched.push({ proof_id: t.proof_id, reason_codes: t.reason_codes });
+    }
+    data.matched_transactions = matched;
+    data.possible_matches = possible;
+    data.unmatched_transactions = unmatched;
   }
   return data;
 }
@@ -158,27 +186,43 @@ export const SAMPLE_PAYLOAD = {
   run_id: "demo_001",
   company_name: "Demo SME Trading Sdn Bhd",
   base_currency: "MYR",
-  matched_transactions: [
+  date_tolerance_days: 3,
+  fee_tolerance: { percent: 0.02, fixed: 20 },
+  fx_rates: [
+    { pair: "USD_MYR", rate: 4.45, date: "2026-05-27" },
+  ],
+  payment_proofs: [
     {
       proof_id: "proof_001",
-      bank_row_id: "bank_001",
       sender_name: "ABC Trading Ltd",
       amount: 1000,
       currency: "USD",
-      expected_amount_local: 4000,
-      actual_amount_local: 3995,
-      match_confidence: 0.94,
-      reason_codes: ["reference_exact_match", "amount_within_fee_tolerance"],
+      reference: "INV-2026-001",
+      payment_date: "2026-05-20",
     },
-  ],
-  unmatched_transactions: [
     {
       proof_id: "proof_002",
       sender_name: "XYZ Global",
-      amount: 50,
-      currency: "USD",
-      expected_amount_local: 213,
-      reason: "No bank transaction found within the configured amount and date tolerance.",
+      amount: 500,
+      currency: "MYR",
+      reference: "PO-9876",
+      payment_date: "2026-05-21",
+    },
+  ],
+  bank_rows: [
+    {
+      bank_row_id: "bank_001",
+      amount_local: 4450,
+      currency: "MYR",
+      settlement_date: "2026-05-22",
+      description: "INV-2026-001 ABC Trading Ltd",
+    },
+    {
+      bank_row_id: "bank_002",
+      amount_local: 500,
+      currency: "MYR",
+      settlement_date: "2026-05-23",
+      description: "PO-9876 XYZ Global",
     },
   ],
 };

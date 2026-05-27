@@ -1,0 +1,99 @@
+{
+  "run_id": "agent-recon-sample-001",
+  "company_name": "TechGlobal Sdn Bhd",
+  "base_currency": "MYR",
+  "fee_tolerance": {
+    "percent": 0.02,
+    "fixed": 20
+  },
+  "date_tolerance_days": 3,
+  "fx_rates": [
+    { "pair": "USD_MYR", "rate": 4.45, "date": "2026-05-27" }
+  ],
+
+  "payment_proofs": [
+    {
+      "proof_id": "PROOF-001",
+      "sender_name": "Alice Buyer",
+      "amount": 1000.00,
+      "currency": "MYR",
+      "reference": "INV-2026-001",
+      "payment_date": "2026-05-20",
+      "raw_description": "Payment for invoice INV-2026-001 by Alice Buyer"
+    },
+    {
+      "proof_id": "PROOF-002",
+      "sender_name": "Bob Corp",
+      "amount": 2200.00,
+      "currency": "MYR",
+      "reference": "PO-9876",
+      "payment_date": "2026-05-21",
+      "raw_description": "Partial payment for PO-9876"
+    },
+    {
+      "proof_id": "PROOF-003",
+      "sender_name": "Charlie Ltd",
+      "amount": 500.00,
+      "currency": "USD",
+      "reference": "CHQ-2026-042",
+      "payment_date": "2026-05-19",
+      "raw_description": "USD cheque from Charlie Ltd"
+    },
+    {
+      "proof_id": "PROOF-004",
+      "sender_name": "Diana Inc",
+      "amount": 3000.00,
+      "currency": "MYR",
+      "reference": "REF-404-UNKNOWN",
+      "payment_date": "2026-05-18",
+      "raw_description": "Payment from Diana Inc"
+    },
+    {
+      "proof_id": "PROOF-005",
+      "sender_name": "Eve Trading",
+      "amount": 150.00,
+      "currency": "MYR",
+      "reference": "EFT-2026-099",
+      "payment_date": "2026-05-22",
+      "raw_description": "Eve Trading payment"
+    }
+  ],
+
+  "bank_rows": [
+    {
+      "bank_row_id": "BANK-001",
+      "amount_local": 1000.00,
+      "currency": "MYR",
+      "settlement_date": "2026-05-20",
+      "description": "INV-2026-001 Alice Buyer"
+    },
+    {
+      "bank_row_id": "BANK-002",
+      "amount_local": 2200.00,
+      "currency": "MYR",
+      "settlement_date": "2026-05-23",
+      "description": "PO-9876 Bob Corp partial"
+    },
+    {
+      "bank_row_id": "BANK-003",
+      "amount_local": 2225.00,
+      "currency": "MYR",
+      "settlement_date": "2026-05-21",
+      "description": "CHQ-2026-042 Charlie Ltd USD conv"
+    },
+    {
+      "bank_row_id": "BANK-004",
+      "amount_local": 2999.50,
+      "currency": "MYR",
+      "settlement_date": "2026-05-19",
+      "description": "Diana Inc monthly payment"
+    },
+    {
+      "bank_row_id": "BANK-005",
+      "amount_local": 1950.00,
+      "currency": "MYR",
+      "settlement_date": "2026-05-25",
+      "description": "EFT-2026-099 Eve Trading"
+    }
+  ]
+}

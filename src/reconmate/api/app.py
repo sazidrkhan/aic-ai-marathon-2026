@@ -18,6 +18,8 @@ from reconmate.agent.documents import generate_agent_documents_with_chain
 from reconmate.agent.gemini_client import GeminiClient
 from reconmate.agent.handoff import build_backend_reconcile_response
 from reconmate.agent.ocr_engine import ocr_extract_structured
+from reconmate.agent.orchestrator import run_agent_orchestrator
+from reconmate.reconciliation.models import AgentReconcileRequest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MAX_OCR_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -165,6 +167,26 @@ def reconcile(payload: ReconcilePayload) -> dict[str, Any]:
         response["summary"] = _build_summary(payload_dict)
         response["transactions"] = payload_dict.get("matched_transactions", [])
         return response
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/reconcile/agent")
+def reconcile_agent(payload: AgentReconcileRequest) -> dict[str, Any]:
+    """
+    Agent-driven reconciliation using the Orchestrator-Workers pattern.
+    The orchestrator runs backend tools (FX, fee tolerance, matching,
+    confidence scoring, classification) and then delegates LLM report
+    generation to the existing provider chain (Chutes/Gemini/Template).
+    """
+    try:
+        clients: AppClients = app.state.clients
+        result = run_agent_orchestrator(
+            payload,
+            chutes_client=clients.chutes,
+            gemini_client=clients.gemini,
+        )
+        return result
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

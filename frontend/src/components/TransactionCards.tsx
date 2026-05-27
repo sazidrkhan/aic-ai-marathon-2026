@@ -1,9 +1,31 @@
-import { ArrowRight, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ArrowRight, CheckCircle2, AlertTriangle, HelpCircle } from "lucide-react";
 import type { MatchedTransaction, UnmatchedTransaction } from "@/lib/reconmate-api";
 
-function fmt(n?: number) {
+function fmt(n?: number | string | null) {
   if (n === undefined || n === null) return "—";
+  if (typeof n === "string") {
+    const parsed = parseFloat(n);
+    return isNaN(parsed) ? n : parsed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
   return n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function confidencePct(t: MatchedTransaction): number | null {
+  if (t.match_confidence !== undefined) return t.match_confidence;
+  if (t.confidence !== undefined) {
+    const c = typeof t.confidence === "string" ? parseFloat(t.confidence) : t.confidence;
+    return isNaN(c) ? null : c;
+  }
+  return null;
+}
+
+function classificationIcon(cls?: string) {
+  switch (cls) {
+    case "matched": return <CheckCircle2 className="w-4 h-4 text-emerald-400" />;
+    case "possible": return <HelpCircle className="w-4 h-4 text-amber-400" />;
+    case "unmatched": return <AlertTriangle className="w-4 h-4 text-red-400" />;
+    default: return null;
+  }
 }
 
 export function MatchedTransactionCards({ items }: { items?: MatchedTransaction[] }) {
@@ -14,40 +36,60 @@ export function MatchedTransactionCards({ items }: { items?: MatchedTransaction[
         <CheckCircle2 className="w-4 h-4" /> Matched Transactions ({items.length})
       </h3>
       <div className="premium-card-group grid sm:grid-cols-2 gap-3">
-        {items.map((t, i) => (
-          <div key={i} className="premium-card glass-card rounded-xl p-4 border-emerald-400/20">
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-medium text-white truncate">{t.sender_name ?? t.proof_id}</div>
-              {t.match_confidence !== undefined && (
-                <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-400/30">
-                  {(t.match_confidence * 100).toFixed(0)}%
+        {items.map((t, i) => {
+          const conf = confidencePct(t);
+          return (
+            <div key={i} className="premium-card glass-card rounded-xl p-4 border-emerald-400/20">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {classificationIcon(t.classification)}
+                  <span className="font-medium text-white truncate">{t.sender_name ?? t.proof_id}</span>
+                </div>
+                {conf !== null && (
+                  <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 shrink-0">
+                    {(conf * 100).toFixed(0)}%
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <span className="text-cyan-300 font-mono">
+                  {fmt(t.amount)} {t.currency}
                 </span>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="text-purple-300 font-mono">{fmt(t.actual_amount_local)}</span>
+                <span className="text-[11px] text-muted-foreground">
+                  (expected {fmt(t.expected_amount_local)})
+                </span>
+              </div>
+              {t.fee_difference !== undefined && t.fee_difference !== null && (
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Fee diff: {fmt(t.fee_difference)}
+                </div>
+              )}
+              {t.reason_codes && t.reason_codes.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {t.reason_codes.map((r) => (
+                    <span
+                      key={r}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-muted-foreground"
+                    >
+                      {r}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {t.reasoning_facts && t.reasoning_facts.length > 0 && (
+                <div className="mt-2 space-y-0.5">
+                  {t.reasoning_facts.slice(0, 2).map((f, j) => (
+                    <p key={j} className="text-[10px] text-cyan-200/60 leading-relaxed line-clamp-2">
+                      {f}
+                    </p>
+                  ))}
+                </div>
               )}
             </div>
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <span className="text-cyan-300 font-mono">
-                {fmt(t.amount)} {t.currency}
-              </span>
-              <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-purple-300 font-mono">{fmt(t.actual_amount_local)}</span>
-              <span className="text-[11px] text-muted-foreground">
-                (expected {fmt(t.expected_amount_local)})
-              </span>
-            </div>
-            {t.reason_codes && t.reason_codes.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {t.reason_codes.map((r) => (
-                  <span
-                    key={r}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-muted-foreground"
-                  >
-                    {r}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -76,6 +118,15 @@ export function UnmatchedTransactionCards({ items }: { items?: UnmatchedTransact
             </div>
             {t.reason && (
               <p className="mt-2 text-xs text-amber-200/80 leading-relaxed">{t.reason}</p>
+            )}
+            {t.reason_codes && t.reason_codes.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {t.reason_codes.map((r) => (
+                  <span key={r} className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-muted-foreground">
+                    {r}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
         ))}

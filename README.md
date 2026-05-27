@@ -56,7 +56,7 @@ Use Python 3.11 on Windows for this project, especially for OCR. If
 
 This repository contains:
 
-- **FastAPI backend** (`main.py`) with `/api/reconcile`, `/health`, `/api/models`, `/api/ocr-extract`
+- **FastAPI backend** (`main.py`) with `/api/reconcile`, `/api/reconcile/agent`, `/health`, `/api/models`, `/api/ocr-extract`
 - **Chutes.AI LLM client** with retry logic for rate limits (`src/reconmate/agent/chutes_client.py`)
 - **Gemini API LLM client** as fallback (`src/reconmate/agent/gemini_client.py`)
 - **LLM provider chain** with automatic fallback: Chutes → Gemini → Template
@@ -113,7 +113,7 @@ Never commit real API keys.
 ## Test
 
 ```bash
-PYTHONPATH=src python3 -m unittest tests/test_agent_documents.py
+PYTHONPATH=src python3 -m unittest tests/test_agent_documents.py tests/test_reconciliation.py tests/test_agent_orchestrator.py
 ```
 
 ## Demo Without LLM
@@ -126,6 +126,40 @@ PYTHONPATH=src python3 -m reconmate.agent.run_sample data/sample/reconciliation_
 
 ```bash
 PYTHONPATH=src python3 -m reconmate.agent.run_sample data/sample/reconciliation_payload.json --use-chutes
+```
+
+## Agent Orchestrator Endpoint
+
+ReconMate now includes an **Orchestrator-Workers** pattern for computed agentic reconciliation via `POST /api/reconcile/agent`.
+
+The orchestrator runs a deterministic pipeline:
+1. **validate_reconciliation_inputs** — checks required fields
+2. **parse_payment_proofs** — extracts proof data
+3. **parse_bank_rows** — extracts bank row data
+4. **apply_fx_rates** — converts foreign currencies to base currency
+5. **match_transactions** — generates all candidate proof-bank row pairs (reference, sender, date, amount matching)
+6. **classify_reconciliation_results** — scores confidence, applies tie-breaking, classifies as matched/possible/unmatched
+7. **LLM report generation** — delegates to existing provider chain (Chutes/Gemini/Template) for finance-friendly report writing
+
+**Key principles:**
+- Backend tools are the source of truth for all financial calculations (FX, fees, matching, confidence)
+- The LLM never calculates — it only generates reports from structured facts
+- Returned data includes `computed_by_backend: true` and all computed fields
+
+**Sample payload:**
+```bash
+PYTHONPATH=src python3 -c "
+import json
+from reconmate.reconciliation.models import AgentReconcileRequest
+from reconmate.agent.orchestrator import run_agent_orchestrator
+with open('data/sample/agent_reconciliation_payload.json') as f:
+    data = json.load(f)
+req = AgentReconcileRequest(**data)
+result = run_agent_orchestrator(req, provider_mode='template')
+print('Matched:', result['summary']['matched_count'])
+print('Possible:', result['summary']['possible_match_count'])
+print('Unmatched:', result['summary']['unmatched_payment_proof_count'])
+"
 ```
 
 ## API Test
