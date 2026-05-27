@@ -2,7 +2,30 @@
 
 ReconMate is an AI Marathon 2026 prototype for Problem Statement 3: The Global Treasury Agent.
 
-ReconMate uses a custom FastAPI orchestrator and direct Chutes.AI inference for finance-safe document generation. It does not use any prebuilt agent framework. It uses PaddleOCR for payment-proof OCR and a React frontend planned through Lovable AI.
+ReconMate uses a custom FastAPI orchestrator and direct LLM inference for finance-safe document generation. It does not use any prebuilt agent framework. It uses PaddleOCR for payment-proof OCR and a React frontend planned through Lovable AI.
+
+## LLM Provider Chain
+
+ReconMate supports multiple LLM providers with automatic fallback:
+
+```
+LLM_PROVIDER=auto (default):
+  Chutes.AI → Gemini API → Template Fallback
+
+LLM_PROVIDER=chutes:
+  Chutes.AI only → Template Fallback
+
+LLM_PROVIDER=gemini:
+  Gemini only → Template Fallback
+
+LLM_PROVIDER=template:
+  Skip all LLMs, use deterministic templates only
+```
+
+**Report sources:**
+- `chutes_agent` — Chutes.AI generated the report
+- `gemini_agent` — Gemini API generated the report
+- `template_fallback` — LLM was unavailable, used deterministic templates
 
 ## Quick Start
 
@@ -34,28 +57,56 @@ Use Python 3.11 on Windows for this project, especially for OCR. If
 This repository contains:
 
 - **FastAPI backend** (`main.py`) with `/api/reconcile`, `/health`, `/api/models`, `/api/ocr-extract`
-- **Chutes.AI LLM client** with retry logic for rate limits
+- **Chutes.AI LLM client** with retry logic for rate limits (`src/reconmate/agent/chutes_client.py`)
+- **Gemini API LLM client** as fallback (`src/reconmate/agent/gemini_client.py`)
+- **LLM provider chain** with automatic fallback: Chutes → Gemini → Template
 - **ReconMate system prompt** for finance-safe document generation
 - **Agent document generation** (Reconciliation Report + Discrepancy Summary)
 - **Template fallback** when Chutes is unavailable or rate-limited
 - **Optional OCR integration** (`reconmate.agent.ocr_engine`) - install `requirements-ocr.txt` to enable PaddleOCR image/scanned-PDF extraction and text-PDF parsing
+- **Template fallback** when no LLM is available or rate-limited
+- **Optional PaddleOCR integration** (`reconmate.agent.ocr_engine`) — install `requirements-ocr.txt` to enable
 - **Sample reconciliation payload** for controlled demo data
 - **Lovable React frontend** (`frontend/`) with TanStack Start — connect to backend via `VITE_API_BASE_URL`
 - **Minimal fallback frontend** (`frontend/index.html`) served at `/` for quick demo
 - **Pitch deck** (`docs/pitch_deck.md`) and **demo script** (`docs/video_script.md`)
-
+- 
 ## Core Principle
 
-The LLM does not perform financial truth calculations. Backend tools calculate FX, fees, match status, and confidence. Chutes generates finance-friendly reports from those structured facts.
+The LLM does not perform financial truth calculations. Backend tools calculate FX, fees, match status, and confidence. The LLM only generates finance-friendly reports from those structured facts.
 
 ## Environment
 
 ```bash
+# Chutes.AI (optional)
 export CHUTES_API_KEY=cpk_your_key_here
 export CHUTES_BASE_URL=https://llm.chutes.ai/v1
 export CHUTES_MODEL=default:latency
 export CHUTES_TIMEOUT_SECONDS=30
+
+# Gemini API (optional - fallback when Chutes is unavailable)
+export GEMINI_API_KEY=your_gemini_key_here
+export GEMINI_MODEL=gemini-3.5-flash
+export GEMINI_TIMEOUT_SECONDS=30
+
+# Provider selection (default: auto)
+# Options: auto, chutes, gemini, template
+export LLM_PROVIDER=auto
 ```
+
+**PowerShell:**
+```powershell
+# Force Gemini mode for local testing (Chutes rate-limited)
+$env:GEMINI_API_KEY="your-gemini-api-key"
+$env:LLM_PROVIDER="gemini"
+$env:PYTHONPATH="src"
+python main.py
+```
+
+**Model notes:**
+- `GEMINI_MODEL=gemini-3.5-flash` (default)
+- If you encounter errors, try `GEMINI_MODEL=gemini-2.5-flash`
+- `LLM_PROVIDER=template` guarantees the demo works without any LLM API key
 
 Never commit real API keys.
 
@@ -128,7 +179,7 @@ npm run dev
 The frontend reads `VITE_API_BASE_URL` from `frontend/.env` (defaults to `http://127.0.0.1:8000`).
 
 **Backend CORS:**
-- Allowed origins: `localhost:5173`, `127.0.0.1:5173`, `localhost:3000`, `127.0.0.1:3000`
+- Allowed origins: `localhost:5173`, `127.0.0.1:5173`, `localhost:3000`, `127.0.0.1:3000`, `localhost:8080`, `127.0.0.1:8080`
 - Credentials: disabled (`allow_credentials=False`)
 
 **Debugging "Failed to fetch" / "Could not reach agent":**

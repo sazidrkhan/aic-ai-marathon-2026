@@ -4,6 +4,7 @@ import sys
 import tempfile
 from uuid import uuid4
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +14,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from reconmate.agent.chutes_client import ChutesClient
-from reconmate.agent.documents import generate_agent_documents
+from reconmate.agent.documents import generate_agent_documents_with_chain
+from reconmate.agent.gemini_client import GeminiClient
 from reconmate.agent.handoff import build_backend_reconcile_response
 from reconmate.agent.ocr_engine import ocr_extract_structured
 
@@ -31,6 +33,12 @@ ALLOWED_OCR_CONTENT_TYPES = {
 
 if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
+
+
+@dataclass(frozen=True)
+class AppClients:
+    chutes: ChutesClient
+    gemini: GeminiClient
 
 
 class ReconcilePayload(BaseModel):
@@ -63,7 +71,10 @@ class ReconcileResponse(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.chutes_client = ChutesClient.from_env()
+    app.state.clients = AppClients(
+        chutes=ChutesClient.from_env(),
+        gemini=GeminiClient.from_env(),
+    )
     yield
 
 
@@ -110,35 +121,45 @@ def frontend() -> FileResponse:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    """Return service status and Chutes runtime configuration."""
-    client: ChutesClient = app.state.chutes_client
+    """Return service status and LLM runtime configuration."""
+    clients: AppClients = app.state.clients
     return {
         "status": "ok",
-        "chutes_model": client.model,
-        "chutes_base_url": client.base_url,
-        "api_key_configured": bool(client.api_key),
+        "chutes_model": clients.chutes.model,
+        "chutes_base_url": clients.chutes.base_url,
+        "chutes_api_key_configured": bool(clients.chutes.api_key),
+        "gemini_model": clients.gemini.model,
+        "gemini_api_key_configured": bool(clients.gemini.api_key),
     }
 
 
 @app.get("/api/models")
 def list_models() -> dict[str, Any]:
-    """Return the currently configured Chutes model."""
-    client: ChutesClient = app.state.chutes_client
+    """Return the currently configured LLM models."""
+    clients: AppClients = app.state.clients
     return {
-        "model": client.model,
-        "base_url": client.base_url,
-        "api_key_configured": bool(client.api_key),
+        "chutes": {
+            "model": clients.chutes.model,
+            "base_url": clients.chutes.base_url,
+            "api_key_configured": bool(clients.chutes.api_key),
+        },
+        "gemini": {
+            "model": clients.gemini.model,
+            "api_key_configured": bool(clients.gemini.api_key),
+        },
     }
 
 
 @app.post("/api/reconcile", response_model=ReconcileResponse)
 def reconcile(payload: ReconcilePayload) -> dict[str, Any]:
-    """Run the reconciliation document-generation workflow."""
+    """Run the reconciliation document-generation workflow with LLM fallback chain."""
     try:
         payload_dict = payload.model_dump()
-        agent_result = generate_agent_documents(
+        clients: AppClients = app.state.clients
+        agent_result = generate_agent_documents_with_chain(
             payload_dict,
-            llm_client=app.state.chutes_client,
+            chutes_client=clients.chutes,
+            gemini_client=clients.gemini,
         )
         response = build_backend_reconcile_response(payload.run_id, agent_result)
         response["summary"] = _build_summary(payload_dict)
