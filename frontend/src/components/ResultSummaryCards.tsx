@@ -12,6 +12,7 @@ export function ResultSummaryCards({ result }: { result: ReconcileResponse }) {
     // Use the larger of the two values
   }
   const isChutes = (result.source === "chutes_agent" || result.report_source === "chutes_agent") && result.fallback_used === false;
+  const isGemini = (result.source === "gemini_agent" || result.report_source === "gemini_agent") && result.fallback_used === false;
   const isFallback = result.fallback_used === true;
 
   return (
@@ -36,12 +37,17 @@ export function ResultSummaryCards({ result }: { result: ReconcileResponse }) {
             Generated using Chutes-powered ReconMate Agent
           </StatusBadge>
         )}
+        {isGemini && (
+          <StatusBadge tone="purple" icon={Sparkles}>
+            Generated using Gemini-powered ReconMate Agent
+          </StatusBadge>
+        )}
         {isFallback && (
           <StatusBadge tone="amber" icon={Shield}>
             Template fallback used because LLM generation was unavailable
           </StatusBadge>
         )}
-        {!isChutes && !isFallback && (
+        {!isChutes && !isGemini && !isFallback && (
           <StatusBadge tone="slate">
             Source: {result.source ?? "unknown"}
           </StatusBadge>
