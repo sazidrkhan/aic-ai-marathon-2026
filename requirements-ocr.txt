@@ -1,4 +1,8 @@
 # Optional OCR dependencies.
-# Install only if you want real PaddleOCR extraction instead of demo stub OCR.
-paddleocr>=2.8.0
+# PaddleOCR 2.x is pinned with PaddlePaddle 2.x to avoid Paddle 3 runtime/PIR
+# incompatibilities on Windows.
+paddlepaddle>=2.6.0,<3.0.0
+paddleocr>=2.8.0,<3.0.0
 pillow>=10.0.0
+pypdf>=4.0.0
+pymupdf>=1.24.0

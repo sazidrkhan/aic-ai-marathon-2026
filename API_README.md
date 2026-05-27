@@ -48,7 +48,7 @@ To enable real OCR, install the optional OCR dependencies:
 pip install -r requirements-ocr.txt
 ```
 
-Without it, the OCR endpoints return a stub response for demo purposes.
+Without it, the OCR endpoint returns `status: "unavailable"` with a setup message instead of fake extracted text.
 
 ## Demo Frontend
 

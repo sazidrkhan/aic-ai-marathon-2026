@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+import tempfile
+from uuid import uuid4
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,8 +17,19 @@ from reconmate.agent.chutes_client import ChutesClient
 from reconmate.agent.documents import generate_agent_documents_with_chain
 from reconmate.agent.gemini_client import GeminiClient
 from reconmate.agent.handoff import build_backend_reconcile_response
+from reconmate.agent.ocr_engine import ocr_extract_structured
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+MAX_OCR_UPLOAD_BYTES = 10 * 1024 * 1024
+ALLOWED_OCR_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
+ALLOWED_OCR_CONTENT_TYPES = {
+    "application/pdf",
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/pjpeg",
+    "application/octet-stream",
+}
 
 if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -158,17 +171,57 @@ def reconcile(payload: ReconcilePayload) -> dict[str, Any]:
 
 @app.post("/api/ocr-extract")
 async def ocr_extract(file: UploadFile = File(...)) -> dict[str, Any]:
-    """Accept a payment-proof file and return demo OCR output."""
-    temp_path = REPO_ROOT / "tmp" / file.filename
-    temp_path.parent.mkdir(parents=True, exist_ok=True)
+    """Accept a payment-proof file and return OCR text plus parsed fields."""
+    filename = Path(file.filename or "payment-proof").name
+    suffix = Path(filename).suffix.lower()
+    content_type = file.content_type or "application/octet-stream"
+
+    if suffix not in ALLOWED_OCR_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported OCR file type. Upload PDF, PNG, JPG, or JPEG.",
+        )
+    if content_type not in ALLOWED_OCR_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported OCR content type. Upload PDF, PNG, JPG, or JPEG.",
+        )
+
+    temp_path: Path | None = None
     try:
         contents = await file.read()
+        if not contents:
+            raise HTTPException(status_code=400, detail="Uploaded OCR file is empty.")
+        if len(contents) > MAX_OCR_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="OCR upload must be 10 MB or smaller.")
+
+        temp_dir = Path(tempfile.gettempdir()) / "reconmate_ocr_uploads"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_path = temp_dir / f"{uuid4().hex}{suffix}"
         temp_path.write_bytes(contents)
+
+        ocr_result = ocr_extract_structured(temp_path)
         return {
-            "filename": file.filename,
-            "ocr_text": f"[Stubbed OCR output for {file.filename}]",
-            "status": "stubbed",
-            "message": "OCR upload accepted. Install PaddleOCR to enable real extraction.",
+            "filename": filename,
+            "content_type": content_type,
+            "status": ocr_result.get("status"),
+            "engine": ocr_result.get("engine"),
+            "confidence": ocr_result.get("confidence"),
+            "ocr_text": ocr_result.get("raw_text", ""),
+            "lines": ocr_result.get("lines", []),
+            "fields": {
+                "sender_name": ocr_result.get("sender_name"),
+                "amount": ocr_result.get("amount"),
+                "currency": ocr_result.get("currency"),
+                "reference": ocr_result.get("reference"),
+                "date": ocr_result.get("date"),
+            },
+            "message": ocr_result.get("message"),
         }
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        if temp_path and temp_path.exists():
+            temp_path.unlink(missing_ok=True)
