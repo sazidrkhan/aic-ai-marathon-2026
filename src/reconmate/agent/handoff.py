@@ -29,7 +29,7 @@ def choose_demo_model_ids(model_payload: dict[str, Any], *, limit: int = 8) -> l
     return chosen
 
 
-def build_hermes_provider_config(*, models: Iterable[str]) -> str:
+def build_chutes_provider_config(*, models: Iterable[str]) -> str:
     model_lines = "\n".join(f"      {model}: {{}}" for model in models)
     return f"""providers:
   chutes:
@@ -50,6 +50,7 @@ def build_backend_reconcile_response(run_id: str, agent_result: dict[str, Any]) 
 
     return {
         "run_id": run_id,
+        "report_source": report_source,
         "documents": {
             "reconciliation_report": {
                 "generated": documents["reconciliation_report"]["generated"],

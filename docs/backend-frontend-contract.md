@@ -29,12 +29,12 @@ PaddleOCR -> proof parser -> bank parser -> FX/fee tools -> matcher -> ReconMate
   "documents": {
     "reconciliation_report": {
       "generated": true,
-      "source": "chutes_hermes",
+      "source": "chutes_agent",
       "content": "## Reconciliation Report\n..."
     },
     "discrepancy_summary": {
       "generated": true,
-      "source": "chutes_hermes",
+      "source": "chutes_agent",
       "content": "## Discrepancy Summary\n..."
     }
   },
@@ -60,13 +60,13 @@ The React UI should have these sections:
 2. Bank Statement Input
 3. Reconciliation Result
 4. Agent Tool Trace
-5. Hermes/Chutes Generated Report
+5. Chutes.AI Generated Report
 6. Discrepancy Summary
 
-Show this label only when `source` is `chutes_hermes` and `fallback_used` is `false`:
+Show this label only when `source` is `chutes_agent` and `fallback_used` is `false`:
 
 ```text
-Generated using Chutes-powered Hermes Agent
+Generated using Chutes-powered ReconMate Agent
 ```
 
 Show this label when `fallback_used` is `true`:
@@ -75,7 +75,7 @@ Show this label when `fallback_used` is `true`:
 Template fallback used because LLM generation was unavailable
 ```
 
-Do not show the Chutes/Hermes label for template fallback output.
+Do not show the Chutes-powered ReconMate Agent label for template fallback output.
 
 ## Document Rendering
 
@@ -117,13 +117,13 @@ def reconcile_endpoint_handler(reconciliation_payload: dict) -> dict:
 
 The backend must decide match status before the agent document generator is called.
 
-The Chutes/Hermes agent may explain:
+The Chutes.AI agent may explain:
 
 - Why a match was accepted.
 - Why a discrepancy remains unresolved.
 - What a finance user should check next.
 
-The Chutes/Hermes agent must not decide:
+The Chutes.AI agent must not decide:
 
 - Final match status.
 - FX rate truth.

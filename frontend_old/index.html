@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReconMate - Global Treasury Reconciliation Agent</title>
+  <style>
+    :root {
+      --primary: #1a73e8; --bg: #f5f6fa; --card: #ffffff;
+      --text: #2d3436; --muted: #636e72; --border: #dfe6e9;
+      --success: #00b894; --warning: #fdcb6e; --danger: #d63031;
+      --font: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); margin: 0; padding: 0; }
+    header { background: linear-gradient(135deg, #1a73e8, #00b894); color: #fff; padding: 2rem; text-align: center; }
+    header h1 { margin: 0; font-size: 2rem; }
+    header p { margin: .5rem 0 0; opacity: .9; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: var(--card); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 1.5rem; }
+    .card h2 { margin-top: 0; font-size: 1.25rem; color: var(--primary); }
+    label { display: block; margin-bottom: .25rem; font-weight: 500; color: var(--muted); font-size: .875rem; }
+    input, select, textarea, button {
+      width: 100%; padding: .75rem; border: 1px solid var(--border); border-radius: 8px;
+      font-family: var(--font); font-size: .9375rem; resize: vertical;
+    }
+    button { background: var(--primary); color: #fff; border: none; cursor: pointer; font-weight: 600; transition: filter .2s; }
+    button:hover { filter: brightness(1.1); }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .status-badge { display: inline-block; padding: .25rem .75rem; border-radius: 20px; font-size: .75rem; font-weight: 600; text-transform: uppercase; }
+    .badge-success { background: rgba(0,184,148,.1); color: var(--success); }
+    .badge-warning { background: rgba(253,203,110,.2); color: #e1b12c; }
+    .badge-danger  { background: rgba(214,48,49,.1); color: var(--danger); }
+    .hint { background: #eef5ff; border: 1px solid #c9ddff; color: #285fbd; padding: .75rem; border-radius: 8px; margin-bottom: 1rem; font-size: .9rem; }
+    .results { margin-top: 1.5rem; }
+    .result-card { background: #f8f9fa; border-left: 4px solid var(--primary); padding: 1rem; margin-bottom: 1rem; border-radius: 0 8px 8px 0; }
+    .result-card h3 { margin: 0 0 .5rem; font-size: 1rem; color: var(--primary); }
+    .result-card pre { background: #2d3436; color: #dfe6e9; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: .8125rem; white-space: pre-wrap; }
+    .agent-trace { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: .5rem; }
+    .trace-step { flex: 0 0 auto; min-width: 180px; padding: .75rem; border-radius: 8px; font-size: .8125rem; }
+    .trace-step.ok { background: rgba(0,184,148,.08); border: 1px solid rgba(0,184,148,.2); }
+    .trace-step.warn { background: rgba(253,203,110,.1); border: 1px solid rgba(253,203,110,.3); }
+    .trace-step h4 { margin: 0 0 .25rem; font-size: .875rem; color: var(--text); }
+    .trace-step span { color: var(--muted); font-size: .75rem; }
+    .loading { display: none; text-align: center; padding: 2rem; }
+    .loading.active { display: block; }
+    .spinner { width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>ReconMate</h1>
+  <p>Global Treasury Reconciliation Agent for SMEs</p>
+</header>
+
+<div class="container">
+  <div class="hint">
+    Start the backend with <strong>python main.py</strong>, open this page at <strong>http://127.0.0.1:8000/</strong>, then press <strong>Run Reconciliation</strong> below.
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Reconciliation Input</h2>
+      <form id="reconcileForm">
+        <label for="company">Company Name</label>
+        <input id="company" value="Demo SME Trading Sdn Bhd" required />
+
+        <label for="currency" style="margin-top:.75rem">Base Currency</label>
+        <select id="currency">
+          <option value="MYR" selected>MYR</option>
+          <option value="USD">USD</option>
+          <option value="SGD">SGD</option>
+        </select>
+
+        <label style="margin-top:.75rem">Upload Payment Proof</label>
+        <input type="file" id="proofFile" accept="image/*,.pdf" />
+
+        <label style="margin-top:.75rem">Or Paste Structured Payload (JSON)</label>
+        <textarea id="payloadJson" rows="12" placeholder="Paste reconciliation payload JSON here...">
+{
+  "run_id": "demo_001",
+  "company_name": "Demo SME Trading Sdn Bhd",
+  "base_currency": "MYR",
+  "matched_transactions": [
+    {
+      "proof_id": "proof_001",
+      "bank_row_id": "bank_001",
+      "sender_name": "ABC Trading Ltd",
+      "amount": 1000.0,
+      "currency": "USD",
+      "expected_amount_local": 4700.0,
+      "actual_amount_local": 4685.0,
+      "fee_difference": 15.0,
+      "confidence": 0.94,
+      "reason_codes": ["reference_exact_match", "amount_within_fee_tolerance"],
+      "reasoning_facts": ["Matched with reference and fee tolerance."]
+    }
+  ],
+  "possible_matches": [],
+  "unmatched_payment_proofs": [],
+  "unmatched_bank_rows": [],
+  "fx_rates_used": [{"pair": "USD/MYR", "rate": 4.7, "date": "2026-05-20"}],
+  "agent_trace": [
+    {"step": 1, "tool": "paddle_ocr_extract", "status": "success", "summary": "Extracted text from controlled payment proofs."},
+    {"step": 2, "tool": "match_transactions", "status": "success", "summary": "Applied reference, amount, date, FX, and fee matching rules."}
+  ]
+}
+        </textarea>
+
+        <button type="submit" style="margin-top:1rem">Run Reconciliation</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Results</h2>
+
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Reconciling: matching transactions and generating report...</p>
+      </div>
+
+      <div id="resultContainer">
+        <p style="color:var(--muted);font-size:.9375rem">Press <strong>Run Reconciliation</strong> to see the report, discrepancy summary, and agent trace.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card results">
+    <h2>Agent Tool Trace</h2>
+    <div id="agentTrace" class="agent-trace">
+      <p style="color:var(--muted)">No trace yet. Run reconciliation to see the agent workflow.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_URL = window.location.protocol.startsWith("http")
+    ? `${window.location.origin}/api/reconcile`
+    : "http://127.0.0.1:8000/api/reconcile";
+
+  const form = document.getElementById("reconcileForm");
+  const loading = document.getElementById("loading");
+  const resultContainer = document.getElementById("resultContainer");
+  const agentTrace = document.getElementById("agentTrace");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loading.classList.add("active");
+    resultContainer.innerHTML = "";
+    agentTrace.innerHTML = "<p style='color:var(--muted)'>Running agent pipeline...</p>";
+
+    let payload;
+    try {
+      const raw = document.getElementById("payloadJson").value.trim();
+      payload = JSON.parse(raw);
+    } catch (err) {
+      resultContainer.innerHTML = `<div class="result-card"><h3>Invalid JSON</h3><p>${err.message}</p></div>`;
+      loading.classList.remove("active");
+      return;
+    }
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      renderResults(data);
+    } catch (err) {
+      resultContainer.innerHTML = `<div class="result-card" style="border-left-color:var(--danger)"><h3>Request Failed</h3><p>${err.message}</p><p>Make sure the backend is running and open this UI from http://127.0.0.1:8000/.</p></div>`;
+    } finally {
+      loading.classList.remove("active");
+    }
+  });
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function renderResults(data) {
+    const { summary, documents, agent_trace, fallback_used, llm_error } = data;
+    const badges = [
+      `<span class="status-badge ${fallback_used ? 'badge-warning' : 'badge-success'}">${fallback_used ? 'Template Fallback' : 'Chutes LLM'}</span>`,
+      summary.matched_count > 0 ? `<span class="status-badge badge-success">${summary.matched_count} Matched</span>` : '',
+      summary.unmatched_payment_proof_count > 0 ? `<span class="status-badge badge-warning">${summary.unmatched_payment_proof_count} Unmatched</span>` : ''
+    ].filter(Boolean).join(' ');
+
+    let html = `<div style="margin-bottom:1rem">${badges}</div>`;
+
+    if (documents?.reconciliation_report?.generated) {
+      html += `<div class="result-card"><h3>Reconciliation Report</h3><pre>${escapeHtml(documents.reconciliation_report.content)}</pre></div>`;
+    }
+
+    if (documents?.discrepancy_summary?.generated) {
+      html += `<div class="result-card"><h3>Discrepancy Summary</h3><pre>${escapeHtml(documents.discrepancy_summary.content)}</pre></div>`;
+    }
+
+    if (llm_error) {
+      html += `<div class="result-card" style="border-left-color:var(--danger)"><h3>LLM Error</h3><pre>${escapeHtml(llm_error)}</pre><p style="color:var(--muted);font-size:.8125rem">Falling back to deterministic templates.</p></div>`;
+    }
+
+    resultContainer.innerHTML = html;
+    agentTrace.innerHTML = (agent_trace || []).map(step => `
+      <div class="trace-step ${step.status === 'success' ? 'ok' : 'warn'}">
+        <h4>${escapeHtml(step.tool || '').replace(/_/g, ' ')}</h4>
+        <span>${escapeHtml(step.status || '')}</span>
+        <p style="margin-top:.5rem;color:var(--muted);font-size:.75rem">${escapeHtml(step.summary || '')}</p>
+      </div>
+    `).join('');
+  }
+</script>
+</body>
+</html>

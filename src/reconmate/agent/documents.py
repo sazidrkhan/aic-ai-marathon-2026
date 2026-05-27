@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Protocol
+import os
+from typing import Any, Literal, NamedTuple, Optional, Protocol
 
 from reconmate.agent.prompts import SYSTEM_PROMPT, build_document_prompt
+
+ProviderName = Literal["chutes", "gemini", "template"]
+ProviderMode = Literal["auto", "chutes", "gemini", "template"]
 
 
 class LlmClient(Protocol):
@@ -13,48 +17,158 @@ class LlmClient(Protocol):
         """Generate text from an LLM provider."""
 
 
-def generate_agent_documents(payload: dict[str, Any], *, llm_client: LlmClient) -> dict[str, Any]:
+class ProviderResult(NamedTuple):
+    success: bool
+    report_source: str
+    model: Optional[str]
+    documents: dict[str, dict[str, Any]]
+    agent_trace_entry: dict[str, Any]
+    error: Optional[str]
+
+
+def _try_generate_with_client(
+    payload: dict[str, Any],
+    llm_client: LlmClient,
+    provider_name: ProviderName,
+    existing_trace: list[dict[str, Any]],
+) -> ProviderResult:
     payload_json = json.dumps(payload, indent=2, sort_keys=True)
     user_prompt = build_document_prompt(payload_json)
-    trace = list(payload.get("agent_trace", []))
+    step = len(existing_trace) + 1
 
     try:
         content = llm_client.generate(system_prompt=SYSTEM_PROMPT, user_prompt=user_prompt)
         documents = _split_markdown_documents(content)
-        trace.append(
-            {
-                "step": len(trace) + 1,
-                "tool": "chutes_generate_documents",
-                "status": "success",
-                "summary": "Generated reconciliation report and discrepancy summary using Chutes-powered agent prompts.",
-            }
-        )
-        return {
-            "report_source": "chutes_hermes",
-            "model": llm_client.model,
-            "documents": documents,
-            "agent_trace": trace,
-            "fallback_used": False,
-            "llm_error": None,
+        report_source = f"{provider_name}_agent"
+        trace_entry = {
+            "step": step,
+            "tool": f"{provider_name}_generate_documents",
+            "status": "success",
+            "summary": f"Generated reconciliation report and discrepancy summary using {provider_name.title()}-powered agent prompts.",
         }
-    except Exception as exc:  # Demo reliability: report generation must not crash reconciliation.
-        documents = _template_documents(payload)
-        trace.append(
-            {
-                "step": len(trace) + 1,
-                "tool": "chutes_generate_documents",
-                "status": "fallback",
-                "summary": f"Used deterministic template fallback because LLM generation failed: {exc}",
-            }
+        return ProviderResult(
+            success=True,
+            report_source=report_source,
+            model=llm_client.model,
+            documents=documents,
+            agent_trace_entry=trace_entry,
+            error=None,
         )
-        return {
-            "report_source": "template_fallback",
-            "model": None,
-            "documents": documents,
-            "agent_trace": trace,
-            "fallback_used": True,
-            "llm_error": str(exc),
+    except Exception as exc:
+        trace_entry = {
+            "step": step,
+            "tool": f"{provider_name}_generate_documents",
+            "status": "failed",
+            "summary": f"{provider_name.title()} LLM generation failed: {exc}",
         }
+        return ProviderResult(
+            success=False,
+            report_source="",
+            model=None,
+            documents={},
+            agent_trace_entry=trace_entry,
+            error=str(exc),
+        )
+
+
+def generate_agent_documents(payload: dict[str, Any], *, llm_client: LlmClient) -> dict[str, Any]:
+    return generate_agent_documents_with_chain(
+        payload,
+        chutes_client=llm_client,
+        gemini_client=None,
+        provider_mode="chutes",
+    )
+
+
+def generate_agent_documents_with_chain(
+    payload: dict[str, Any],
+    *,
+    chutes_client: Optional[LlmClient] = None,
+    gemini_client: Optional[LlmClient] = None,
+    provider_mode: Optional[ProviderMode] = None,
+) -> dict[str, Any]:
+    if provider_mode is None:
+        provider_mode = _get_provider_mode_from_env()
+
+    trace = list(payload.get("agent_trace", []))
+    errors: list[str] = []
+
+    chutes_available = chutes_client is not None and chutes_client.api_key is not None if hasattr(chutes_client, "api_key") else False
+    gemini_available = gemini_client is not None and gemini_client.api_key is not None if hasattr(gemini_client, "api_key") else False
+
+    if chutes_client is not None:
+        try:
+            chutes_available = bool(getattr(chutes_client, "api_key", None))
+        except Exception:
+            chutes_available = False
+
+    if gemini_client is not None:
+        try:
+            gemini_available = bool(getattr(gemini_client, "api_key", None))
+        except Exception:
+            gemini_available = False
+
+    providers_to_try: list[tuple[ProviderName, Optional[LlmClient]]] = []
+
+    if provider_mode == "auto":
+        if chutes_available and chutes_client is not None:
+            providers_to_try.append(("chutes", chutes_client))
+        if gemini_available and gemini_client is not None:
+            providers_to_try.append(("gemini", gemini_client))
+    elif provider_mode == "chutes":
+        if chutes_client is not None:
+            providers_to_try.append(("chutes", chutes_client))
+    elif provider_mode == "gemini":
+        if gemini_client is not None:
+            providers_to_try.append(("gemini", gemini_client))
+    elif provider_mode == "template":
+        pass
+
+    for provider_name, client in providers_to_try:
+        if client is None:
+            continue
+        result = _try_generate_with_client(payload, client, provider_name, trace)
+        trace.append(result.agent_trace_entry)
+        if result.success:
+            return {
+                "report_source": result.report_source,
+                "model": result.model,
+                "documents": result.documents,
+                "agent_trace": trace,
+                "fallback_used": False,
+                "llm_error": None,
+            }
+        if result.error:
+            errors.append(f"{provider_name}: {result.error}")
+
+    documents = _template_documents(payload)
+    fallback_step = len(trace) + 1
+    combined_error = "; ".join(errors) if errors else None
+    trace.append(
+        {
+            "step": fallback_step,
+            "tool": "template_fallback",
+            "status": "fallback",
+            "summary": "Used deterministic template fallback because LLM generation was unavailable"
+            + (f": {combined_error}" if combined_error else ""),
+        }
+    )
+
+    return {
+        "report_source": "template_fallback",
+        "model": None,
+        "documents": documents,
+        "agent_trace": trace,
+        "fallback_used": True,
+        "llm_error": combined_error,
+    }
+
+
+def _get_provider_mode_from_env() -> ProviderMode:
+    mode = os.environ.get("LLM_PROVIDER", "auto").lower().strip()
+    if mode in ("auto", "chutes", "gemini", "template"):
+        return mode  # type: ignore
+    return "auto"
 
 
 def _split_markdown_documents(content: str) -> dict[str, dict[str, Any]]:
